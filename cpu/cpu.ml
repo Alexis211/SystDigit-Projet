@@ -37,12 +37,15 @@ let cpu_ram ra we wa d =
     let read_data = mux read_ram read_data rd_ram in
 
     (* MMIO *)
-    let read_tick = eq_c 16 ra 0x4000 in
-    let next_tick, save_next_tick = loop 8 in
-    let tick = nadder 8 (reg 8 next_tick) (get "tick" ++ zeroes 7) in
+    let read_tick_lo = eq_c 16 ra 0x4000 in
+    let read_tick_hi = eq_c 16 ra 0x4001 in
+    let next_tick, save_next_tick = loop 16 in
+    let tick = nadder 16 (reg 16 next_tick) (get "tick" ++ zeroes 15) in
     let read_data =
-        save_next_tick (mux read_tick tick (zeroes 8)) ^.
-        mux read_tick read_data tick in
+        save_next_tick (mux read_tick_hi tick (zeroes 16)) ^.
+        mux read_tick_lo 
+            (mux read_tick_hi read_data (tick % (8, 15)))
+            (tick % (0, 7)) in
 
     let write_ser = we ^& (eq_c 16 wa 0x4102) in
     let read_data =

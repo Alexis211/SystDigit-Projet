@@ -22,7 +22,7 @@ module Smap = Map.Make(String)
 (* Simplify cascade slicing/selecting *)
 let cascade_slices p =
   let usefull = ref false in
-  let slices = Hashtbl.create 42 in
+  let slices = Hashtbl.create (Env.cardinal p.p_vars / 12) in
   let eqs_new = List.map
     (fun (n, eq) -> (n, match eq with
       | Eslice(u, v, Avar(x)) ->
@@ -61,7 +61,7 @@ let cascade_slices p =
 *)
 let pass_concat p =
   let usefull = ref false in
-  let concats = Hashtbl.create 42 in
+  let concats = Hashtbl.create (Env.cardinal p.p_vars / 12) in
   List.iter (fun (n, eq) -> match eq with
       | Econcat(x, y) ->
         let s1 = match x with
@@ -198,7 +198,7 @@ let same_eq_simplify p =
   let usefull = ref false in
   let id_outputs =
     (List.fold_left (fun x k -> Sset.add k x) Sset.empty p.p_outputs) in
-  let eq_map = Hashtbl.create 42 in
+  let eq_map = Hashtbl.create (List.length p.p_eqs) in
   List.iter
     (fun (n, eq) -> if Sset.mem n id_outputs then
       Hashtbl.add eq_map eq n)
@@ -328,16 +328,14 @@ let topo_sort p =
 let rec simplify_with steps p =
   let pp, use = List.fold_left
     (fun (x, u) (f, n) ->
+      Format.printf "%s...%!" n;
       let xx, uu = f x in 
-      print_endline (if uu then n ^ " *" else n);
+      Format.printf "%s\n%!" (if uu then " *" else "");
       (xx, u || uu))
     (p, false) steps in
   if use then simplify_with steps pp else pp
 
 let simplify p =
-  let p = simplify_with [
-    topo_sort, "topo_sort";
-  ] p in
   let p = simplify_with [
     cascade_slices, "cascade_slices";
     pass_concat, "pass_concat";
@@ -350,7 +348,6 @@ let simplify p =
     eliminate_id, "eliminate_id";
   ] p in
   let p = simplify_with [
-    topo_sort, "topo_sort";
     cascade_slices, "cascade_slices";
     pass_concat, "pass_concat";
     arith_simplify, "arith_simplify";

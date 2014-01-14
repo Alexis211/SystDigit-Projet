@@ -189,23 +189,23 @@ unit_test_1:  # Unsigned multiplication
 unit_test_2:        # Unsigned division
     li B 1
 
-    li C 60
+    li C 61
     li D 5
     divu C C D
     move D E
     sei A C 12
     and B B A
-    se A D Z
+    sei A D 1
     and B B A
 
-    li C 14129
-    li D 477
-    divu C C D
-    move D E
-    sei A C 31
-    and B B A
-    sei A D 272
-    and B B A
+    #li C 61
+    #li D 5
+    #divu C C D
+    #move D E
+    #sei A C 12
+    #and B B A
+    #sei A D 1
+    #and B B A
 
     jr RA
 unit_test_3:        # Signed multiplication/division

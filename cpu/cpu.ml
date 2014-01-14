@@ -9,6 +9,8 @@ let dbg_read_data, save_dbg_read_data = loop 8
 let dbg_wa, save_dbg_wa = loop 16
 let dbg_write_data, save_dbg_write_data = loop 8
 
+let d7_out = Array.to_list (Array.init 8 (fun i -> let v, sl = loop 8 in ("d7_"^(string_of_int i), v, sl, i)))
+
 let cpu_ram ra we wa d =
     (*  Ram chip has word size = 8 bits and address size = 16 bits
         0x0000 to 0x3FFF is ROM0
@@ -64,6 +66,12 @@ let cpu_ram ra we wa d =
         save_ser_in_busy ser_busy ^.
         save_next_ser (mux read_ser ser (zeroes 8)) ^.
         mux read_ser read_data ser in
+
+    let read_data = List.fold_left
+        (fun rd (_, prevd7digit, setd7digit, i) ->
+            let save_that_digit = we ^& (eq_c 16 wa (0x4200 + i)) in
+            setd7digit (mux save_that_digit (reg 8 prevd7digit) d) ^. rd)
+        read_data d7_out in
 
     save_dbg_ra ra ^.
     save_dbg_read_data read_data ^.
@@ -298,28 +306,30 @@ let p =
             "tick", 1;
             "ser_in", 8;
         ]
-        [
-            "read_ilow", 1, rl;
-            "read_ihi", 1, rh;
-            "ex_instr", 1, ex;
-            "ex_finish", 1, exf;
-            "i", 16, i;
-            "ra", 16, dbg_ra;
-            "read_data", 8, dbg_read_data;
-            "wa", 16, dbg_wa;
-            "write_data", 8, dbg_write_data;
-            "pc", 16, pc;
-            "r0_Z", 16, r0;
-            "r1_A", 16, r1;
-            "r2_B", 16, r2;
-            "r3_C", 16, r3;
-            "r4_D", 16, r4;
-            "r5_E", 16, r5;
-            "r6_F", 16, r6;
-            "r7_G", 16, r7;
-            "ser_out", 8, ser_out;
-            "ser_in_busy", 1, ser_in_busy;
-        ]
+        (
+            [
+                "read_ilow", 1, rl;
+                "read_ihi", 1, rh;
+                "ex_instr", 1, ex;
+                "ex_finish", 1, exf;
+                "i", 16, i;
+                "ra", 16, dbg_ra;
+                "read_data", 8, dbg_read_data;
+                "wa", 16, dbg_wa;
+                "write_data", 8, dbg_write_data;
+                "pc", 16, pc;
+                "r0_Z", 16, r0;
+                "r1_A", 16, r1;
+                "r2_B", 16, r2;
+                "r3_C", 16, r3;
+                "r4_D", 16, r4;
+                "r5_E", 16, r5;
+                "r6_F", 16, r6;
+                "r7_G", 16, r7;
+                "ser_out", 8, ser_out;
+                "ser_in_busy", 1, ser_in_busy;
+            ] @ List.map (fun (name, out, _, _) -> (name, 8, out)) d7_out
+        )
 
 let () = Netlist_printer.print_program stdout p
 

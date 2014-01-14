@@ -37,13 +37,14 @@ _end_process_input:
     jz A _main_loop
 
     jal incr_clock
-    jal disp_time
+    jal disp_clock_d7
     j _main_loop
 
 # PROCEDURE: incr_clock
 # ROLE: take into account seconds increment
 # ARGUMENTS: number of seconds to add, in register A
 incr_clock:
+    push RA
     jz A _incr_clock_ret
 
     lb B var_sec
@@ -71,11 +72,8 @@ incr_clock:
 
     lb B var_day
     add B B A
-    lb C var_month
-    li D days_in_month
-    add D D C
-    lb C 0(D)
-    divu A B C
+    jal get_dom
+    divu A B A
     move B E
     sb B var_day
     jz A _incr_clock_ret
@@ -94,12 +92,65 @@ incr_clock:
 
 
 _incr_clock_ret:
+    pop RA
     jr RA
 
-# PROCEDURE: disp_clock
-# ROLE: display current time
+# PROCEDURE: get_dom
+# ROLE: how many days in current month ?
+# RETURN VALUE: the result, in register A.
+# PRESERVES REGISTERS: B
+get_dom:
+    lb C var_month
+    li D days_in_month
+    add D D C
+    lb A 0(D)
+
+    jr RA
+
+# PROCEDURE: disp_clock_d7
+# ROLE: display current time (H M S) to D7 display
 # ARGUMENTS: none
-disp_time:
+disp_clock_d7:
+    li D 10
+
+    lb A var_sec
+    divu A A D
+    move B E
+    push B
+    push A
+    push D
+
+    lb A var_min
+    divu A A D
+    move B E
+    push B
+    push A
+    push D
+
+    lb A var_hour
+    divu A A D
+    move B E
+    push B
+    push A
+
+    li D d7_digits
+    li C 8
+    li B 0x4200
+_disp_d7_loop:
+    pop A
+    add A A D
+    lb A 0(A)
+    sb A 0(B)
+    incri B 1
+    incri C -1
+    jnz C _disp_d7_loop
+
+    jr RA
+
+# PROCEDURE: disp_clock_ser
+# ROLE: display current time to serial output
+# ARGUMENTS: none
+disp_clock_ser:
     push RA
 
     lw A var_year
@@ -147,6 +198,7 @@ disp_time:
 # PROCEDURE: run_cmd
 # ROLE: execute and clear command stored in cmdline
 # ARGUMENTS: none
+# COMMAND FORMAT:[hmsYMD][0-9]+
 run_cmd:
     push RA
 
@@ -156,12 +208,94 @@ run_cmd:
     jal ser_out_str
     li A endl
     jal ser_out_str
+
+    li A cmdline
+    incri A 1
+    li C 0
+_decode_digit_loop:
+    lb B 0(A)
+    jz B _decode_digit_end
+    li D 10
+    mulu C C D
+    li D '0'
+    sub B B D
+    add C C B
+    incri A 1
+    j _decode_digit_loop
+_decode_digit_end:
     
-    li A error
+    li A cmdline
+    lb A 0(A)
+
+    sei B A 's'
+    jz B _test_min
+    li D 60
+    sleu D D C
+    jnz D _error_too_big
+    sb C var_sec
+    j _return_run_cmd
+
+_test_min:
+    sei B A 'm'
+    jz B _test_hour
+    li D 60
+    sleu D D C
+    jnz D _error_too_big
+    sb C var_min
+    j _return_run_cmd
+
+_test_hour:
+    sei B A 'h'
+    jz B _test_day
+    li D 24
+    sleu D D C
+    jnz D _error_too_big
+    sb C var_hour
+    j _return_run_cmd
+
+_test_day:
+    sei B A 'D'
+    jz B _test_month
+    move B C
+    incri B -1
+    jal get_dom
+    sleu D A B
+    jnz D _error_too_big
+    sb B var_day
+    j _return_run_cmd
+
+_test_month:
+    sei B A 'M'
+    jz B _test_year
+    li D 12
+    sleu D D C
+    jnz D _error_too_big
+    incri C -1
+    sb C var_month
+    j _return_run_cmd
+
+_test_year:
+    sei B A 'Y'
+    jz B _test_anything_else
+    sb C var_year
+    j _return_run_cmd
+
+_test_anything_else:
+    jz A _return_run_cmd
+    j _error_no_such_var
+
+_error_too_big:
+    li A error_too_big
+    jal ser_out_str
+    j _return_run_cmd
+
+_error_no_such_var:
+    li A error_no_such_var
     jal ser_out_str
 
-    li A cmdline_used
-    sw Z 0(A)
+_return_run_cmd:
+    sw Z cmdline_used
+    jal disp_clock_ser
 
     pop RA
     jr RA
@@ -380,8 +514,10 @@ prompt:
     ascii "\n$ "
 endl:
     ascii "\n"
-error:
-    ascii "Sorry but I'm to stupid to understand that.\n"
+error_too_big:
+    ascii "That number is too big!\n"
+error_no_such_var:
+    ascii "No such variable...\n"
 
 
 # For unit-tests
@@ -407,6 +543,11 @@ test3:
 
 days_in_month:
     byte 31 28 31 30 31 30 31 31 30 31 30 31
+
+d7_digits:
+    byte 0b1110111 0b0100100 0b1011101 0b1101101 0b0101110
+    byte 0b1101011 0b1111011 0b0100101 0b1111111 0b1101111
+    byte 0
 
 
 .data

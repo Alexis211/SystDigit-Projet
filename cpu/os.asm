@@ -1,21 +1,26 @@
 # CONVENTION:
-#       return value for functions : in register A
-#       arguments for functions : registers A, B, C, D
-#       all registers are caller-saved, except SP which is preserved by function calls
+#       Return value for functions : in register A
+#       Arguments for functions : registers A, B, C, D
+#       All registers are caller-saved, except SP which is preserved by function calls
+#       Labels beginning with '_' are not meant to be used outside of the function where
+#           they are declared.
 
 .text
+
+# PROCEDURE: main loop
+# ROLE: starts with the CPU then runs continuously
     jal run_unit_tests 
 
     li A msghello
     jal ser_out_msg
 
     push Z
-main_loop:
+_main_loop:
     # Process serial input
     jal check_input
-    jz A end_process_input
+    jz A _end_process_input
     jal run_cmd
-end_process_input:
+_end_process_input:
 
     # Process clock ticking
     pop D
@@ -24,10 +29,10 @@ end_process_input:
     add D D B
     push D
 
-    jz B main_loop
+    jz B _main_loop
     li A msgtick
     jal ser_out_msg
-    j main_loop
+    j _main_loop
 
 # PROCEDURE: run_cmd
 # ROLE: execute and clear command stored in cmdline
@@ -57,13 +62,13 @@ run_cmd:
 # ARGUMENTS: address of string in register A
 ser_out_msg:
     li C _output
-ser_out_msg_loop:
+_ser_out_msg_loop:
     lb B 0(A)
-    jz B ser_out_msg_ret
+    jz B _ser_out_msg_ret
     sb B 0(C)
     incri A 1
-    j ser_out_msg_loop
-ser_out_msg_ret:
+    j _ser_out_msg_loop
+_ser_out_msg_ret:
     jr RA
 
 # PROCEDURE: check_input
@@ -74,12 +79,12 @@ ser_out_msg_ret:
 check_input:
     li A _input
     lb A 0(A)
-    jz A check_input_ret
+    jz A _check_input_ret
     move B A
     sei A A '\n'
-    jz A add_b_to_string
+    jz A _ci_add_b_to_string
     move B Z
-add_b_to_string:
+_ci_add_b_to_string:
     push A
     li A cmdline
     li D cmdline_used
@@ -90,7 +95,7 @@ add_b_to_string:
     sw C 0(D)
     pop A
     jz A check_input
-check_input_ret:
+_check_input_ret:
     jr RA
 
 # PROCEDURE: run_unit_tests
@@ -104,11 +109,11 @@ run_unit_tests:
 
     move B Z
 
-unit_test_begin:
+_unit_test_begin:
     li D testlist
     add D D B
     lw D 0(D)
-    jz D unit_tests_done
+    jz D _unit_tests_done
     
     push B
     push D
@@ -119,16 +124,16 @@ unit_test_begin:
     pop D
     jalr D
     li A testfail
-    jz B unit_test_failed
+    jz B _unit_test_failed
     li A testok
-unit_test_failed:
+_unit_test_failed:
     jal ser_out_msg
 
     pop B
     addi B B 2
-    j unit_test_begin
+    j _unit_test_begin
 
-unit_tests_done:
+_unit_tests_done:
     pop RA
     jr RA
 
@@ -235,21 +240,21 @@ testok:
 testfail:
     ascii "FAIL\n"
 test0:
-    ascii "Addition/substraction..........."
+    ascii "Addition/substraction.......... "
 test1:
-    ascii "Unsigned multiplication........."
+    ascii "Unsigned multiplication........ "
 test2:
-    ascii "Unsigned division..............."
+    ascii "Unsigned division.............. "
 test3:
-    ascii "Signed multiplication/division.."
+    ascii "Signed multiplication/division. "
 
 
 
 .data
-# Space where command-line is buffered from serial input
+# Space where command-line is buffered from serial input (256 bytes)
 cmdline:
     byte 256
-# Number of bytes used in the command-line buffer
+# Number of bytes used in the command-line buffer (1 word)
 cmdline_used:
     word 1
 

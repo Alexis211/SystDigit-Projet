@@ -374,15 +374,12 @@ check_input:
     jz A _ci_add_b_to_string
     move B Z
 _ci_add_b_to_string:
-    push A
-    li A cmdline
-    li D cmdline_used
-    lw C 0(D)
-    add A A C
-    sb B 0(A)
+    li D cmdline
+    lw C cmdline_used
+    add D D C
+    sb B 0(D)
     incri C 1
-    sw C 0(D)
-    pop A
+    sw C cmdline_used
     jz A check_input
 _check_input_ret:
     jr RA

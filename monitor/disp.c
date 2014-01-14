@@ -126,7 +126,7 @@ void disp_display(t_mon *mon) {
         wprintw(wpstatus2, "  %s ", (mon->d7[i] != -1 && mon->outputs[mon->d7[i]].v_bin[6] == '1' ? "---" : "   "));
 
     if (mon->ser_in_in != -1) {
-        wprintw(wpstatus2, "\nSerial buffer:\n%s\n", mon->ser_buf);
+        wprintw(wpstatus2, "\n\nSerial buffer:\n%s", mon->ser_buf);
     }
 
     if (mon->ser_out != -1) {

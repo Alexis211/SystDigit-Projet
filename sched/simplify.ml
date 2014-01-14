@@ -147,6 +147,10 @@ let arith_simplify p =
       | Emux(_, a, b) when a = b -> Earg(a)
       | Emux(Aconst[|false|], a, b) -> Earg(a)    
       | Emux(Aconst[|true|], a, b) -> Earg(b)
+      | Emux(c, Aconst[|false|], Avar(b)) when Env.find b p.p_vars = 1 ->
+        Ebinop(And, c, Avar(b))
+      | Emux(c, Avar(b), Aconst[|true|]) when Env.find b p.p_vars = 1 ->
+        Ebinop(Or, c, Avar(b))
 
       | Eslice(i, j, k) when i = j -> Eselect(i, k)
 

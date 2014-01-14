@@ -18,7 +18,10 @@ let rec eq_c n v c = (* v is a value, c is a constant *)
     if n = 1 then
         if c = 1 then v else not v
     else
-        (eq_c 1 (v ** 0) (c mod 2)) ^& (eq_c (n-1) (v % (1, n-1)) (c/2))
+        if c mod 2 = 1 then
+            mux (v ** 0) (const "0") (eq_c (n-1) (v % (1, n-1)) (c/2))
+        else
+            mux (v ** 0) (eq_c (n-1) (v % (1, n-1)) (c/2)) (const "0")
 
 let rec all1 n x =
     if n = 1 then

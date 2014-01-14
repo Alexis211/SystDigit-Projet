@@ -163,7 +163,7 @@ let rl, rh, i, ex, exf, pc =
     let wr = mux instr_alu_finished wr i_r in
     let rwd = mux instr_alu_finished rwd alu_d1 in
     let wr = mux instr_alu_store_2 wr (const "101") in
-    let rwd = mux instr_alu_store_2 rwd alu_d2 in
+    let rwd = mux instr_alu_store_2 rwd (reg 16 alu_d2) in
     let exec_finished = mux instr_alu exec_finished 
         (mux double_instr_alu instr_alu_finished instr_alu_store_2) in
 

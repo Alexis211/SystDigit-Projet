@@ -1,0 +1,120 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+
+\usepackage[margin=1.0in]{geometry}
+\usepackage[french]{babel} 
+
+\newcommand{\prog}[1]{{\tt#1}}
+\newcommand{\underscore}{$\_\,$}
+
+\begin{document}
+
+
+
+\title{Programmation d'un simulateur de net-lists \\ \normalsize{\textsc{Projet de Système digital}}}
+\author{Jonathan Laurent}
+\maketitle
+
+
+Le programme \prog{netsim} permet de simuler un circuit digital synchrone représenté par une net-list. Il propose notamment les fonctionnalités suivantes :
+
+\begin{itemize}
+\item Un \textit{mode interactif} suffisament riche pour permettre un déboguage efficace des net-lists
+\item Le maintien d'un \textit{historique} des états de la machine permettant d'annuler certaines actions
+\item La \textit{vérification} de la cohérence des net-lists passées en entrée
+\end{itemize}
+
+\section{Guide d'utilisation}
+\subsection{Commande et options}
+
+Le programme se lance avec la commande 
+
+\begin{center}\prog{./netsim NETLIST\underscore{}FILE [--rom ROM\underscore{}FILE] [-f INPUT\underscore{}FILE] }\end{center}
+
+où \prog{NETLIST\underscore{}FILE} désigne un fichier contenant le circuit à simuler, \prog{ROM\underscore{}FILE} contient le contenu des mémoires \textsc{rom}s et \prog{INPUT\underscore{}FILE} contient une suite de directives à executer avant le démarrage du \textit{mode interactif}.
+
+\medskip
+
+Dans la suite de ce document :
+\begin{itemize}
+\item \prog{val} désigne une valeur, c'est à dire l'état d'une nappe de fils où les bits sont présentés dans l'ordre \emph{décroissant}
+\item \prog{addr} représente une valeur codant pour une adresse
+\item \prog{id} désigne l'identifiant d'une variable présente dans le fichier net-list courant
+\item \prog{cell} désigne une variable ou un emplacement \textsc{ram} de la forme \prog{id : addr} où \prog{addr} est une valeur codant pour une adresse
+
+\end{itemize}
+
+\subsection{Format des fichiers ROM}
+
+Un fichier \textsc{rom} est composé d'une suite de blocs. Un bloc est composé d'un entête de la forme suivante
+\begin{center}\prog{ROM id ADDRSIZE n$_1$ WORDSIZE n$_2$ }\end{center}
+où les deux arguments numériques sont fournis en écriture décimale. Le contenu de la mémoire correspondant à un entête est décrit par une suite de valeurs ordonnées dans le sens des adresses croissantes. Il est possible de sauter directement à une adresse spécifiée avec la directive 
+\begin{center}\prog{ADDR addr :}\end{center}
+Un exemple est fourni dans le dossier \prog{samples} du programme.
+
+\subsection{Le language de scripts d'interaction}
+
+\medskip
+
+Après affichage de l'invite de commande \prog{>}, l'utilisateur peut saisir plusieurs directives, séparées par des points ou des sauts de lignes. La directive la plus simple consiste à entrer une séquence de valeurs \prog{val} séparées par des espaces, et correspondant à chaque entrée du circuit, dans l'ordre de leur déclaration au sein du fichier net-list. Le logiciel exécute alors un cycle machine à partir de ces entrées et affiche les nouvelles valeurs des sorties. Il est également possible de saisir une liste d'affectations suivant l'exemple suivant :
+\begin{center}
+\prog{a = 0, b = 0110, c = 10}
+\end{center}
+Les entrées su circuit qui n'auront pas été mentionnées dans la liste garderont leur valeur précédente. Il est également possible d'utiliser une des directives suivantes :
+
+\medskip
+\begin{center}
+\begin{itemize}
+   \item \prog{\%inputs id$_1$ ... id$_n$} spécifie une nouvelle liste ordonnée des entrées du circuit
+   \item \prog{\%outputs cell$_1$ ... cell$_n$} spécifie la liste des sorties du circuit
+   \item \prog{\%show cell$_1$ ... cell$_n$} affiche la valeur des variables et emplacements \textsc{ram} indiqués. En l'absence d'arguments, la valeur des sorties est affichée
+   \item \prog{\%run n}  exécute $n$ cycles machine
+   \item \prog{\%echo off} désactive l'affichage  automatique des sorties après exécution d'un cycle. Pour réactiver cette fonctionnalité, remplacer \prog{off} par \prog{on}
+   \item \prog{\%echo on} active l'affichage des sorties
+   \item \prog{\%undo n}  annule les $n$ dernières commandes ayant eu pour effet d'exécuter des cycles machine. Si l'argument n'est pas spécifié, $n=1$
+   \item \prog{\%redo n} annule un appel anterieur de \prog{\%undo n}, si aucune opération d'écriture n'a été excutée d'ici là
+   \item \prog{\%history n} redéfinit la valeur de la capacité de l'historique permettant d'effectuer des \prog{undo}
+   
+\end{itemize}
+\end{center}
+
+Des exemples sont disponnibles dans le dossier \prog{samples} du programme.
+\section{Carcatéristiques techniques}
+
+Une exécution du programme se déroule schématiquement de la manière suivante :
+
+\paragraph{Au chargement d'un fichier net-list :}
+\begin{itemize}
+\item Les équations sont triées dans l'ordre topologique et tout cycle d'exécution est signalé
+\item Une vérification de la cohérence des types est effectuée
+\item La liste d'équations est précompilée (voire suite)
+\end{itemize}
+
+\paragraph{A chaque cycle :}
+\begin{itemize}
+\item Les valeurs des mémoires \textsc{ram} sont mises à jour en fonction de l'état de la machine à la fin du cycle \emph{précédent}. Le membre gauche d'une équation de type \textsc{ram} ne dépend ainsi dans l'ordre topologique que du paramètre de l'adresse de lecture.
+\item Chaque équation modifie l'état courant sur la base de l'état de la machine à la fin du cycle précédent (calcul des valeurs des registres) et de l'état obtenu après exécution des équations antérieures (par rapport à l'ordre topologique)
+\end{itemize}
+
+\medskip
+
+Pour plus de détails, le lecteur est invité à consulter le fichier \emph{netlist\underscore{}simulator.ml}.
+
+\subsection{Optimisations}
+Afin de rendre le programme raisonnablement efficace, deux optimisations ont été principalement mises en oeuvre :
+
+\begin{itemize}
+\item Chaque variable se voit affecter un identifiant numérique et l'état de toutes les variables de la machine est stockée dans un tableau. Cependant, le type \prog{state} exporté par \prog{Netlist\underscore{}simulator} est persistent (le tableau est recopié à la fin de toutes les fonctions exportées par la signature du module), ce qui permet de gérer plutôt simplement un historique.
+\item La liste des équations est précompilée en une liste de fonctions du type \prog{state -> state -> state} de manière à ce que la structure de ses éléments ne soit pas réexplorée à chaque cycle. Pour plus d'explications, consulter \emph{netlist\underscore{}simulator.ml}.
+\end{itemize}
+
+\medskip
+
+Ces deux améliorations représentent un gain de temps d'un facteur 12 environ environ. A titre indicatif, la simulation de $84000$ cycles du circuit à $300$ variables \prog{clockHMS} prend $3s$.
+
+\subsection{Améliorations possibles}
+
+Le système actuel génère des erreurs très imprécises et ne vérifie pas la sémantique des fichiers de \textsc{rom} et des directives d'entrées.
+
+\end{document}

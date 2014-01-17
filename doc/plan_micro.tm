@@ -66,7 +66,8 @@
   at 0x4000>|<cell|Clock ticker (incremented every tick, reset on
   read)>>|<row|<cell|byte at 0x4100>|<cell|Serial input (set when byte
   received, reset on read)>>|<row|<cell|byte at 0x4102>|<cell|Serial output
-  (sends byte immediately on write)>>>>>|Addresses MMIO>
+  (sends byte immediately on write)>>|<row|<cell|bytes 0x4200 to
+  0x4207>|<cell|7-segment displayer>>>>>|Addresses MMIO>
 
   <section|Jeu d'instruction>
 

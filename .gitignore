@@ -9,6 +9,8 @@ asm/asm
 cpu/os.rom
 *.o
 *.ps
+*.log
+*.aux
 */*.net
 */*.snet
 */*.dumb

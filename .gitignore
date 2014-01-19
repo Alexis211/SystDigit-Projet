@@ -16,3 +16,9 @@ cpu/os.rom
 */*.dumb
 rapport_simulateur.pdf
 *.tm~
+doc/7c
+rapport_final.pdf
+rapport_final.tex
+rapport_final.dep
+*.ly
+

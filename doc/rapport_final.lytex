@@ -392,7 +392,7 @@ mapped respectively to the clock counter, the serial output and the serial input
 Here is an example function that outputs a string on the serial output:
 
 \begin{verbatim}
- PROCEDURE: ser_out_str
+# PROCEDURE: ser_out_str
 # ROLE: write null-terminated string to serial output
 # ARGUMENTS: address of string in register A
 ser_out_str:

@@ -424,6 +424,28 @@ has been somewhat problematic, due to incorrect use of \prog{scanf} making the p
 
 \subsection{The operating system}
 
+The operating system (source file : \prog{os.asm}) is a simple collection of assembly functions,
+that implement the following features :
+
+\begin{itemize}
+    \item Serial input/output
+    \item Writing of string and integers to serial output
+    \item Date calculation
+    \item Parsing of command-line calls to set the clock variables
+    \item Unit tests for addition, substraction, unsigned multiplication and usigned division.
+\end{itemize}
+
+
 \section{Results and benchmarking}
+
+We have managed to run the processor sucessfully, and to make it display the date and time
+as expected.
+
+With only basic ALU operations implemented (basically, unsigned division and comparison), the
+netlist generated for the CPU is 5532 lines long without simplifications, and 2533 lines long
+after simplifications (see report on the simulator for details about these simplification passes).
+
+The CPU runs at a reasonnable frequency of more than $10khz$, which enables it to interact
+with the user almost instantly.
 
 \end{document}

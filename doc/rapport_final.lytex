@@ -7,27 +7,27 @@
 \usepackage{indentfirst}
 \usepackage{array,booktabs,longtable}
 \usepackage{multirow}
+\usepackage{listings}
+
 \usepackage{comment}
 
 \newcommand{\prog}[1]{{\tt#1}}
 \newcommand{\underscore}{$\_\,$}
+\newcommand{\vivace}{\textsc{Vivace}}
 
 \begin{document}
 
 
 
-\title{Conception and realization of the VIVACE architecture
+\title{Conception and realization of the \vivace{}  architecture
              \\ \normalsize{\textsc{Projet de Système digital}}}
 \author{A. Auvolat \and É. Enguehard \and J. Laurent}
 \maketitle
 
 
-The VIVACE architecture is
+The \vivace{} architecture is
 a minimalistic 16 bits RISC microprocessor architecture, largely inspired by the MIPS
-microprocessor.
-
-
-The principal characteristics of the architecture are:
+microprocessor. The principal characteristics of the architecture are:
 
 \begin{itemize}
 \item \textit{8 general-purpose registers}, which can hold 16 bits integers: \prog{Z, A, B, C, D, E, F, G}
@@ -48,33 +48,33 @@ The reader keen on learning valuable and useful information should skip the next
 section and jump to section \ref{sec:useful}. He who does not strive for usefulness
 may proceed.
 
-\section{The name VIVACE}
+\section{The name \vivace{}}
 
-VIVACE is a recursive acronym standing for “Virtually Infallible VIVACE Automated
-Computing Environment”. We do not think anyone would dispute that VIVACE is an
+\vivace{} is a recursive acronym standing for “\emph{Virtually Infallible \vivace Automated
+Computing Environment}”. We do not think anyone would dispute that \vivace{} is an
 automated computing environment, and shall thus discuss the rest of the allegations
 that are made in this name.
 
-\subsection{Why is VIVACE virtually infallible ?}
+\subsection{Why is \vivace{} virtually infallible ?}
 
-VIVACE bears a great many similarities to the pope, in that, among other things,
+\vivace{} bears a great many similarities to the pope, in that, among other things,
 it is virtually infallible the sole and only reason that we, its creators, are able
 to claim as loudly as needs be that it is so.
 
-\subsection{Why “Vivace” ?}
+\subsection{Why “\vivace{}” ?}
 
-“Vivace”, as anyone knows, is an italian word meaning, surprisingly enough, “vivacious”.
+“\vivace{}”, as anyone knows, is an italian word meaning, surprisingly enough, “vivacious”.
 Outside of its homeland, the word is mostly known for its place of honour in the musical
 glossary. Its inscription at the beginning of a musical piece means the composer
 of said piece intends it to be played in a lively tone, yet the interpret should not
 strive for fastness and virtuosity, as he should if the inscription were “Allegro”
 or “Presto”.
 
-Its name, thus, suits perfectly VIVACE; it is certainly as fast as a software-emulated
+Its name, thus, suits perfectly \vivace{}; it is certainly as fast as a software-emulated
 microprocessor can be, yet, as it is the sad fate of any software-emulated microprocessor,
 it is extremely slow.
 
-One may ask: what does VIVACE has to do with music? In fact, the VIVACE CPU has 
+One may ask: what does \vivace{} has to do with music? In fact, the \vivace{} CPU has 
 eight registers, seven of which are referred to with the letters \prog{A} through \prog{G}.
 In English musical notation, those letters happen to be the names of the seven notes
 of the usual scale.\footnote{In German musical notation, the letters \prog{A}
@@ -82,7 +82,7 @@ through \prog{G} are the names of the same seven notes, but in F major instead o
 major. Thus the letter \prog{B} represents an English B-flat, while an English B
 is represented by the letter H.}
 
-This relation between VIVACE and music can be used to translate VIVACE programs
+This relation between \vivace{} and music can be used to translate \vivace{} programs
 into musical pieces, which, while extremely interesting from an intellectual point
 of view, is remarkably useless. Consider, for instance, the following program,
 that uses only elementary instructions (see
@@ -114,7 +114,7 @@ a'4 b'4. e'4 c'4. s \appoggiatura e'8 d'\breve g'4 f'2 a'4 s2}
 
 As should be expected, it sounds awful.
 
-\section{How to run the VIVACE cpu}
+\section{How to run the \vivace{} cpu}
 \label{sec:useful}
 \subsection{Preparation}
 
@@ -127,7 +127,7 @@ All the tools described in the introduction must first be compiled:
     $ cd asm; make; cd ..
 \end{verbatim}
 
-To run the VIVACE CPU, type the following:
+To run the \vivace{} CPU, type the following:
 
 \begin{verbatim}
     $ cd cpu; make
@@ -135,7 +135,7 @@ To run the VIVACE CPU, type the following:
 
 \subsection{Monitor commands}
 
-You are now running the VIVACE CPU. The monitor accepts a few commands to control the simulation.
+You are now running the \vivace{} CPU. The monitor accepts a few commands to control the simulation.
 First, you must configure the monitor to communicate with the CPU. Type:
 
 \begin{verbatim}
@@ -186,9 +186,9 @@ the generation of a closure graph that describes the graph of logical operations
 closures on a program which, at the beginning, has only the circuit inputs. The equations are progressively
 added to the program when the closures are called.
 
-The VIVACE CPU has been entirely realized using this library.
+The \vivace{} CPU has been entirely realized using this library.
 
-\subsection{The VIVACE CPU}
+\subsection{The \vivace{} CPU}
 
 \subsubsection{Control structure}
 
@@ -242,14 +242,135 @@ The 7-segment display is also handled by MMIO : the 8 digits can be modified by 
 
 \subsubsection{The ALU}
 
-\subsection{The VIVACE assembly}
+The \emph{Arithmetic and Logic Unit} implements the following features :
+
+
+
+
+\begin{itemize}
+
+    \item A \textbf{parallel addition circuit} consisting in a linear chain of
+    full--adders. The same circuit is used for doing substractions. There is no
+    distinction between \textit{signed} and \textit{unsigned} addition.
+
+    \item A \textbf{serial unsigned multiplication} circuit that needs as many cycles as the position
+            of the most-significant non-null bit in the second operand.
+
+    \item A \textbf{serial unsigned division circuit} that computes one digit of the
+    quotient and one digit of the remainder per cycle. It relies on the long
+    division algorithm every child has learnt in school. The algorithm and the
+    source code are given in example in Figure~\ref{divalg} and
+    Figure~\ref{divcode}.
+
+\end{itemize}
+
+
+We first tried to keep all the instructions working on one cycle. This is
+feasible concerning the multiplication, by using $16$ addition circuits working
+in parallel. However, the generated overhead in the netlist is of the same order
+of magnitude as the total size of the CPU without this feature. Moreover, it
+appeared it was neither natural nor efficient to write a parallelized version of
+the division circuit. Therefore, we changed the ALU in order to allow a few
+instructions executing on several cycles, by adding two bus
+\prog{start\underscore{}signal} and \prog{work\underscore{}remains}. See
+Figure~\ref{divcode} for an example.
+
+
+Arithmetic overflows are not handled, and the behaviour of the ALU is
+unspecified in the case of a division by $0$. Signed multiplication and division
+are not yet implemented, but it would be easy to use some multiplexers and
+negation circuits to reuse the unsigned version of these circuits, computing the
+sign of the result independently. 
+
+
+In regard to the simulator's implementation, there's no need to optimize the
+depth of the different circuits but the total number of gates. However, some
+functions that are used to generate circuits working on \emph{Redudant Binary
+Representation} were left in the source code.
+
+
+\begin{figure}[p]
+
+\textsc{Long-div} : computes the remainder \prog{R} and the quotient \prog{Q} of the
+	division of \prog{N} by \prog{D}:
+	\medskip
+
+\begin {lstlisting}[basicstyle=\ttfamily, frame=lines] 
+Q := 0                    
+R := 0                              
+for i = n-1 to 0 do
+  R := R << 1
+  R(0) := N(i)
+  if R >= D then
+    R = R - D               
+    Q(i) := 1
+  end
+end  
+
+\end{lstlisting}
+
+\caption{The binary long division algorithm}
+\label{divalg}
+
+\end{figure}
+
+\begin{figure}[p]
+\lstset{language=ML}
+\begin{footnotesize}
+
+\begin {lstlisting}[basicstyle=\ttfamily, frame=lines] 
+let rec ndivu n a b start_signal = 
+
+  let next_busy, set_next_busy = loop 1 in
+  let busy = start_signal ^| (reg 1 next_busy) in
+
+  let dd, set_dd = loop n in
+  let q,  set_q  = loop n in
+  let r,  set_r  = loop n in
+  let c,  set_c  = loop n in  
+  
+  let c = set_c (
+    mux start_signal 
+      (shiftl1 n (reg n c)) 
+      ((const "0") ++ (rep (n-1) (const "1"))) ) in
+
+  let q  = mux start_signal (reg n q) (zeroes n) in
+  let r  = mux start_signal (reg n r) (zeroes n) in
+  let dd = set_dd (mux start_signal (shiftl1 n (reg n dd)) a) in
+  let r = (dd ** (n-1)) ++ (r % (0, n-2)) in
+
+  let rq = mux (ule_n n b r)
+    (r               ++ ((const "0") ++ (q % (0, n-2))))
+    ((nsubber n r b) ++ ((const "1") ++ (q % (0, n-2)))) in
+
+  let r = set_r (rq % (0, n-1)) in
+  let q = set_q (rq % (n, 2*n-1)) in
+
+  let work_remains = nonnull n c in
+
+  let finished = 
+    set_next_busy (busy ^& work_remains) ^. 
+      (not work_remains) ^& busy in
+
+  dd ^. c ^.
+    q, r, finished
+\end{lstlisting}
+\end{footnotesize}
+\caption{The unsigned division circuit}
+\label{divcode}
+\end{figure}
+
+
+
+
+\subsection{The \vivace{} assembly}
 \label{sec:assembly}
 
-The VIVACE assembly language is mostly inspired from the MIPS assembly language.
+The \vivace{} assembly language is mostly inspired from the MIPS assembly language.
 An assembly program is made of a \prog{.text} and an optional \prog{.data} segment, both of
 which may contain labels that behave exactly like in MIPS, except that they may not
 begin with a capital letter. End-of-line characters are
-used as delimiters. Comments begin with \prog{\#} and end with en end-of-line character.
+used as delimiters. Comments begin with \prog{\#} and end with an end-of-line character.
 
 \subsubsection{The \prog{.data} segment}
 
@@ -316,7 +437,7 @@ instruction formats:
 The first register is usually the destination register. Like in MIPS, the \prog{sw}
 and \prog{sb} instructions are exceptions to this rule.
 
-Here is a list of all instructions supported by the VIVACE assembly language. The
+Here is a list of all instructions supported by the \vivace{} assembly language. The
 column specifies wether the instruction is actually supported by the processor or
 it is translated to elementary instructions. Elementary instructions may still
 be translated to several instructions, for example if the operands are too big,
@@ -431,7 +552,7 @@ that implement the following features :
     \item Serial input/output
     \item Writing of string and integers to serial output
     \item Date calculation
-    \item Parsing of command-line calls to set the clock variables
+    \item Parsing of elementary command-line calls to set the clock variables
     \item Unit tests for addition, substraction, unsigned multiplication and usigned division.
 \end{itemize}
 
@@ -442,7 +563,7 @@ We have managed to run the processor sucessfully, and to make it display the dat
 as expected.
 
 With only basic ALU operations implemented (basically, unsigned division and comparison), the
-netlist generated for the CPU is 5532 lines long without simplifications, and 2533 lines long
+netlist generated for the CPU is 5572 lines long without simplifications, and 2560 lines long
 after simplifications (see report on the simulator for details about these simplification passes).
 
 The CPU runs at a reasonnable frequency of more than $10khz$, which enables it to interact

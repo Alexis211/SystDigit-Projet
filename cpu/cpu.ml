@@ -41,10 +41,19 @@ let cpu_ram ra we wa d =
     (* MMIO *)
     let read_tick_lo = eq_c 16 ra 0x4000 in
     let read_tick_hi = eq_c 16 ra 0x4001 in
+    let read_tick = read_tick_lo ^| read_tick_hi in
+
+    let next_tick_buffer, save_next_tick_buffer = loop 3 in
+    let tick_buffer = nadder 3 (reg 3 next_tick_buffer) (get "tick" ++ zeroes 2) in
+
     let next_tick, save_next_tick = loop 16 in
-    let tick = nadder 16 (reg 16 next_tick) (get "tick" ++ zeroes 15) in
+    let tick = reg 16 next_tick in
+
     let read_data =
-        save_next_tick (mux read_tick_hi tick (zeroes 16)) ^.
+        save_next_tick_buffer (mux read_tick (zeroes 3) tick_buffer) ^.
+        save_next_tick (mux read_tick (nadder 16 tick (tick_buffer ++ zeroes 13)) 
+                        (mux read_tick_hi tick (zeroes 16))) ^.
+
         mux read_tick_lo 
             (mux read_tick_hi read_data (tick % (8, 15)))
             (tick % (0, 7)) in

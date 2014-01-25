@@ -24,6 +24,13 @@
 \author{A. Auvolat \and É. Enguehard \and J. Laurent}
 \maketitle
 
+\tableofcontents
+
+\newpage
+
+\section*{Introduction}
+
+\addcontentsline{toc}{section}{Introduction}
 
 The \vivace{} architecture is
 a minimalistic 16 bits RISC microprocessor architecture, largely inspired by the MIPS
@@ -86,7 +93,7 @@ This relation between \vivace{} and music can be used to translate \vivace{} pro
 into musical pieces, which, while extremely interesting from an intellectual point
 of view, is remarkably useless. Consider, for instance, the following program,
 that uses only elementary instructions (see
-section \ref{sec:assembly} for a description of the VIVACE assembly language):
+section \ref{sec:assembly} for a description of the \vivace{} assembly language):
 
 \begin{verbatim}
 .text
@@ -156,7 +163,7 @@ Now, use the following commands to control the simulation:
     \item \prog{q} exit simulation
 \end{itemize}
 
-The CPU recieves commands on the serial input. To send a command to the CPU, use the following syntax:
+The CPU receives commands on the serial input. To send a command to the CPU, use the following syntax:
 
 \begin{verbatim}
     :<cpu_command>
@@ -168,7 +175,7 @@ For instance:
     :Y2014
 \end{verbatim}
 
-These commands are essentially used to set one of the six variables \prog{YMDhms} ; the syntax is similar to the
+These commands are mainly used to set one of the six variables \prog{YMDhms} ; the syntax is similar to the
 example command given above. An empty CPU command tells the CPU to just tell us what time and what day it is.
 
 
@@ -176,8 +183,7 @@ example command given above. An empty CPU command tells the CPU to just tell us 
 \subsection{Generating netlists from Caml code}
 
 We have developped a library that enables us to easily generate netlists from Caml code. The Caml code we write
-has the same abstraction level that MiniJazz has, but it is more comfortable to write circuits like this than
-with MiniJazz code.
+has the same abstraction level that MiniJazz has, but is more comfortable to use.
 
 The library functions are defined in \prog{cpu/netlist\_gen.mli}. Basically, we have created functions that build
 the graph of logical operations. The abstract type \prog{t} is actually a closure to a function that adds the
@@ -219,7 +225,7 @@ appear in the simulator, as CPU outputs:
 
 The CPU has uniform acces to a 64kb address space, which contains the ROM (\prog{0x0000-0x3FFF}), MMIO (\prog{0x4000-0x7FFF})
 and the RAM (\prog{0x8000-0xFFFF}).
-The \prog{cpu\_ram} (\prog{cpu.ml}) subcircuit is basically a bunch of multiplexers that redirect reads and writes to the correct places.
+The \prog{cpu\_ram} (\prog{cpu.ml}) subcircuit consists in a number of multiplexers that redirect reads and writes to the correct places.
 
 The serial input/output is implemented using one input and two outputs :
 
@@ -258,22 +264,21 @@ The \emph{Arithmetic and Logic Unit} implements the following features :
 
     \item A \textbf{serial unsigned division circuit} that computes one digit of the
     quotient and one digit of the remainder per cycle. It relies on the long
-    division algorithm every child has learnt in school. The algorithm and the
-    source code are given in example in Figure~\ref{divalg} and
-    Figure~\ref{divcode}.
+    division algorithm commonly learnt by schoolchildren. The algorithm is given below,
+    and the corresponding source code can be found in appendix~\ref{sec:mldiv}.
 
 \end{itemize}
 
 
 We first tried to keep all the instructions working on one cycle. This is
-feasible concerning the multiplication, by using $16$ addition circuits working
+feasible as far as multiplication is concerned, using $16$ addition circuits working
 in parallel. However, the generated overhead in the netlist is of the same order
 of magnitude as the total size of the CPU without this feature. Moreover, it
 appeared it was neither natural nor efficient to write a parallelized version of
-the division circuit. Therefore, we changed the ALU in order to allow a few
-instructions executing on several cycles, by adding two bus
+the division circuit. For that reason, we changed the ALU in order to allow a few
+instructions to be executed during several cycles, by adding two bus
 \prog{start\underscore{}signal} and \prog{work\underscore{}remains}. See
-Figure~\ref{divcode} for an example.
+below for an example.
 
 
 Arithmetic overflows are not handled, and the behaviour of the ALU is
@@ -285,11 +290,10 @@ sign of the result independently.
 
 In regard to the simulator's implementation, there's no need to optimize the
 depth of the different circuits but the total number of gates. However, some
-functions that are used to generate circuits working on \emph{Redudant Binary
-Representation} were left in the source code.
+functions that are used to generate circuits working on redundant binary
+representation were left in the source code.
 
-
-\begin{figure}[p]
+\bigskip
 
 \textsc{Long-div} : computes the remainder \prog{R} and the quotient \prog{Q} of the
 	division of \prog{N} by \prog{D}:
@@ -309,64 +313,10 @@ end
 
 \end{lstlisting}
 
-\caption{The binary long division algorithm}
-\label{divalg}
-
-\end{figure}
-
-\begin{figure}[p]
-\lstset{language=ML}
-\begin{footnotesize}
-
-\begin {lstlisting}[basicstyle=\ttfamily, frame=lines] 
-let rec ndivu n a b start_signal = 
-
-  let next_busy, set_next_busy = loop 1 in
-  let busy = start_signal ^| (reg 1 next_busy) in
-
-  let dd, set_dd = loop n in
-  let q,  set_q  = loop n in
-  let r,  set_r  = loop n in
-  let c,  set_c  = loop n in  
-  
-  let c = set_c (
-    mux start_signal 
-      (shiftl1 n (reg n c)) 
-      ((const "0") ++ (rep (n-1) (const "1"))) ) in
-
-  let q  = mux start_signal (reg n q) (zeroes n) in
-  let r  = mux start_signal (reg n r) (zeroes n) in
-  let dd = set_dd (mux start_signal (shiftl1 n (reg n dd)) a) in
-  let r = (dd ** (n-1)) ++ (r % (0, n-2)) in
-
-  let rq = mux (ule_n n b r)
-    (r               ++ ((const "0") ++ (q % (0, n-2))))
-    ((nsubber n r b) ++ ((const "1") ++ (q % (0, n-2)))) in
-
-  let r = set_r (rq % (0, n-1)) in
-  let q = set_q (rq % (n, 2*n-1)) in
-
-  let work_remains = nonnull n c in
-
-  let finished = 
-    set_next_busy (busy ^& work_remains) ^. 
-      (not work_remains) ^& busy in
-
-  dd ^. c ^.
-    q, r, finished
-\end{lstlisting}
-\end{footnotesize}
-\caption{The unsigned division circuit}
-\label{divcode}
-\end{figure}
-
-
-
-
 \subsection{The \vivace{} assembly}
 \label{sec:assembly}
 
-The \vivace{} assembly language is mostly inspired from the MIPS assembly language.
+The \vivace{} assembly language is mostly inspired by the MIPS assembly language.
 An assembly program is made of a \prog{.text} and an optional \prog{.data} segment, both of
 which may contain labels that behave exactly like in MIPS, except that they may not
 begin with a capital letter. End-of-line characters are
@@ -434,81 +384,8 @@ instruction formats:
     hlt
 \end{verbatim}
 
-The first register is usually the destination register. Like in MIPS, the \prog{sw}
-and \prog{sb} instructions are exceptions to this rule.
-
-Here is a list of all instructions supported by the \vivace{} assembly language. The
-column specifies wether the instruction is actually supported by the processor or
-it is translated to elementary instructions. Elementary instructions may still
-be translated to several instructions, for example if the operands are too big,
-or if integer operands are used in a command that only accepts registers. In that
-case, the \prog{E} register is used to store the operands.\footnote{While the assembler will process
-all listed instructions, some of them may not have been implemented in the CPU itself.}
-
-\begin{center}
-\begin{longtable}{lccl}
-\toprule
-Name & Elementary? & Format & Comments \\ \midrule
-\prog{add} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{sub} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{mul} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{div} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{addu} & Yes & R3 & Unsigned version of \prog{add} \\ \cmidrule{1-4}
-\prog{subu} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{mulu} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{divu} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{and} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{or} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{xor} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{nor} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{lsl} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{lsr} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{asr} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{se} & Yes & R3 & “Set if Equal” \\ \cmidrule{1-4}
-\prog{sne} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{slt} & Yes & R3 & “Set if Lower Than” \\ \cmidrule{1-4}
-\prog{sle} & Yes & R3 & “Set if Lower or Equal” \\ \cmidrule{1-4}
-\prog{sltu} & Yes & R3 & Unsigned version of \prog{slt} \\ \cmidrule{1-4}
-\prog{sleu} & Yes & R3 & “Set if Lower Than” \\ \cmidrule{1-4}
-\prog{incri} & Yes & I & Allows for larger integers than \prog{add} \\ \cmidrule{1-4}
-\prog{shi} & Yes & I & Shifts first operand by second operand; mostly useless\\ \cmidrule{1-4}
-\prog{j} & Yes & J & If operand is an integer, performs a relative jump \\ \cmidrule{1-4}
-\prog{jal} & Yes & J & “Jump and link;” return address is stored in \prog{G}\\ \cmidrule{1-4}
-\prog{jr} & Yes & R & \\ \cmidrule{1-4}
-\prog{jalr} & Yes & R & \\ \cmidrule{1-4}
-\prog{jer} & Yes & R3 & “Jump if (R2 and R3 are) Equal to (address stored in) Register” \\ \cmidrule{1-4}
-\prog{jner} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{jltru} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{jleru} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{lra} & Yes & J & Instead of performing jump, loads target address in register
-\footnote{Labels may be loaded with command \prog{li}.} \\ \cmidrule{1-4}
-\prog{lw} & Yes & MEM & \\ \cmidrule{1-4}
-\prog{sw} & Yes & MEM & \\ \cmidrule{1-4}
-\prog{lb} & Yes & MEM & \\ \cmidrule{1-4}
-\prog{sb} & Yes & MEM & \\ \cmidrule{1-4}
-\prog{lwr} & Yes & R3 & Looks up at address R2 + R3\\ \cmidrule{1-4}
-\prog{swr} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{sbr} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{lbr} & Yes & R3 & \\ \cmidrule{1-4}
-\prog{hlt} & Yes & H & Infinite loop \\ \cmidrule{1-4}
-\prog{li} & No & I & Translates to appropriate \prog{li*} commands \\ \cmidrule{1-4}
-\prog{lilz} & Yes & I & Loads lower byte, zeroes upper byte \\ \cmidrule{1-4}
-\prog{liuz} & Yes & I & Loads upper byte, zeroes lower byte \\ \cmidrule{1-4}
-\prog{lil} & Yes & I & Loads lower byte \\ \cmidrule{1-4}
-\prog{liu} & Yes & I & Loads upper byte \\ \cmidrule{1-4}
-\prog{push} & No & R & Stores contents of register on top of stack  \\ \cmidrule{1-4}
-\prog{pop} & No & R & Loads contents of register from top of stack  \\ \cmidrule{1-4}
-\prog{move} & No & R2 & \\ \cmidrule{1-4}
-\prog{not} & No & R2 & \\ \cmidrule{1-4}
-\prog{move} & No & R2 & \\ \cmidrule{1-4}
-\prog{jz} & No & R2 & “Jump if Zero“ \\ \cmidrule{1-4}
-\prog{jnz} & No & R2 & \\ \bottomrule
-\end{longtable}
-\end{center}
-
-In addition to this, labels \prog{\underscore clock}, \prog{\underscore output}
-and \prog{\underscore input} are
-mapped respectively to the clock counter, the serial output and the serial input.
+See appendix~\ref{sec:instr} for a more complete description of the \vivace{}
+assembly language, including a list of all existing instructions.
 
 Here is an example function that outputs a string on the serial output:
 
@@ -537,7 +414,7 @@ the \prog{ocamllex} and \prog{menhir} tools, which allows for great flexibility.
 
 The simulator is written in C for performance reasons.
 
-The monitor is a C program, using the curses library for output to the console.
+The monitor is a C program, using the curses library for its output to the console.
 
 The simulator and the monitor communicate via Unix named pipes (FIFO's), which are created in
 the files \prog{/tmp/sim2mon} and \prog{/tmp/mon2sim}. The synchronization of the two programs
@@ -562,11 +439,145 @@ that implement the following features :
 We have managed to run the processor sucessfully, and to make it display the date and time
 as expected.
 
-With only basic ALU operations implemented (basically, unsigned division and comparison), the
+With only basic ALU operations implemented (namely unsigned division and comparison), the
 netlist generated for the CPU is 5572 lines long without simplifications, and 2560 lines long
-after simplifications (see report on the simulator for details about these simplification passes).
+after simplifications (see the previous report on the simulator for details about these simplification passes).
 
-The CPU runs at a reasonnable frequency of more than $10khz$, which enables it to interact
+The CPU runs at a reasonnable frequency of more than 10~kHz, which enables it to interact
 with the user almost instantly.
+
+\newpage
+
+\appendix
+
+\section{An example of netlist generation: the unsigned division circuit}
+
+\label{sec:mldiv}
+
+\lstset{language=ML}
+
+The following OCaml code generates a description of a circuit computing unsigned
+division. The generated netlist is then further processed to reduce the number of gates.
+
+\bigskip
+
+%\begin{footnotesize}
+
+\begin {lstlisting}[basicstyle=\ttfamily, frame=lines] 
+let rec ndivu n a b start_signal = 
+
+  let next_busy, set_next_busy = loop 1 in
+  let busy = start_signal ^| (reg 1 next_busy) in
+
+  let dd, set_dd = loop n in
+  let q,  set_q  = loop n in
+  let r,  set_r  = loop n in
+  let c,  set_c  = loop n in  
+  
+  let c = set_c (
+    mux start_signal 
+      (shiftl1 n (reg n c)) 
+      ((const "0") ++ (rep (n-1) (const "1"))) ) in
+
+  let q  = mux start_signal (reg n q) (zeroes n) in
+  let r  = mux start_signal (reg n r) (zeroes n) in
+  let dd = set_dd (mux start_signal (shiftl1 n (reg n dd)) a) in
+  let r = (dd ** (n-1)) ++ (r % (0, n-2)) in
+
+  let rq = mux (ule_n n b r)
+    (r               ++ ((const "0") ++ (q % (0, n-2))))
+    ((nsubber n r b) ++ ((const "1") ++ (q % (0, n-2)))) in
+
+  let r = set_r (rq % (0, n-1)) in
+  let q = set_q (rq % (n, 2*n-1)) in
+
+  let work_remains = nonnull n c in
+
+  let finished = 
+    set_next_busy (busy ^& work_remains) ^. 
+      (not work_remains) ^& busy in
+
+  dd ^. c ^.
+    q, r, finished
+\end{lstlisting}
+%\end{footnotesize}
+
+\newpage
+
+\section{List of \vivace{} instructions}
+
+\label{sec:instr}
+
+Like in MIPS, the first register appearing in a \vivace{} instruction is usually
+the destination register. Like in MIPS, again, the \prog{sw}
+and \prog{sb} instructions are exceptions to this rule.
+
+The following table lists all instructions supported by the \vivace{} assembly language. The
+column specifies wether the instruction is actually supported by the processor or
+it is translated to elementary instructions. Elementary instructions may still
+be translated to several instructions, for example if the operands are too big,
+or if integer operands are used in a command that only accepts registers. In that
+case, the \prog{E} register is used to store the operands.\footnote{While the assembler will process
+all listed instructions, some of them may not have been implemented in the CPU itself.}
+
+\begin{longtable}{lccl}
+\toprule
+Name & Elementary? & Format & Explanation \\ \midrule
+\prog{add} & Yes & R3 & Addition \\ \cmidrule{1-4}
+\prog{sub} & Yes & R3 & Substraction \\ \cmidrule{1-4}
+\prog{mul} & Yes & R3 & Multiplication \\ \cmidrule{1-4}
+\prog{div} & Yes & R3 & Division (of the second operand by the third one) \\ \cmidrule{1-4}
+\prog{addu} & Yes & R3 & Unsigned version of \prog{add} \\ \cmidrule{1-4}
+\prog{subu} & Yes & R3 & Unsigned version of \prog{sub}\\ \cmidrule{1-4}
+\prog{mulu} & Yes & R3 & Unsigned version of \prog{mul}\\ \cmidrule{1-4}
+\prog{divu} & Yes & R3 & Unsigned version of \prog{div}\\ \cmidrule{1-4}
+\prog{and} & Yes & R3 & Bitwise “and” \\ \cmidrule{1-4}
+\prog{or} & Yes & R3 & Bitwise “or” \\ \cmidrule{1-4}
+\prog{xor} & Yes & R3 & Bitwise “exclusive or” \\ \cmidrule{1-4}
+\prog{nor} & Yes & R3 & Bitwise “or not” \\ \cmidrule{1-4}
+\prog{lsl} & Yes & R3 & Left-shift (of the second operand by the third one) \\ \cmidrule{1-4}
+\prog{lsr} & Yes & R3 & Right-shift, padding with zeroes \\ \cmidrule{1-4}
+\prog{asr} & Yes & R3 & Right-shift, padding with the sign bit \\ \cmidrule{1-4}
+\prog{se} & Yes & R3 & Equality comparison \\ \cmidrule{1-4}
+\prog{sne} & Yes & R3 & Negation of \prog{se} \\ \cmidrule{1-4}
+\prog{slt} & Yes & R3 & “Lower than” comparison \\ \cmidrule{1-4}
+\prog{sle} & Yes & R3 & “Lower or equal” comparison \\ \cmidrule{1-4}
+\prog{sltu} & Yes & R3 & Unsigned version of \prog{slt} \\ \cmidrule{1-4}
+\prog{sleu} & Yes & R3 & Unsigned version of \prog{sle} \\ \cmidrule{1-4}
+\prog{incri} & Yes & I & Adds byte to register \\ \cmidrule{1-4}
+\prog{shi} & Yes & I & Shifts first operand by second operand; mostly useless\\ \cmidrule{1-4}
+\prog{j} & Yes & J & Jumps to a label, or jumps by an integer \\ \cmidrule{1-4}
+\prog{jal} & Yes & J & Like \prog{j}, but also stores the return address in \prog{G} \\ \cmidrule{1-4}
+\prog{jr} & Yes & R & Jumps to address stored in register \\ \cmidrule{1-4}
+\prog{jalr} & Yes & R & Like \prog{jr}, but also stores the return address in \prog{G} \\ \cmidrule{1-4}
+\prog{jer} & Yes & R3 & Conditional jump, based on equality comparison \\ \cmidrule{1-4}
+\prog{jner} & Yes & R3 & Conditional jump, based on inequality comparison \\ \cmidrule{1-4}
+\prog{jltr} & Yes & R3 & Conditional jump, based on “lower than” comparison \\ \cmidrule{1-4}
+\prog{jler} & Yes & R3 & Conditional jump, based on “lower or equal” comparison \\ \cmidrule{1-4}
+\prog{jltru} & Yes & R3 & Unsigned version of \prog{jltr} \\ \cmidrule{1-4}
+\prog{jleru} & Yes & R3 & Unsigned version of \prog{jler} \\ \cmidrule{1-4}
+\prog{lra} & Yes & J & Like \prog{j}, but loads target address instead of branching
+\footnote{\prog{lra} can only have integer operands. Labels may be loaded with command \prog{li}.} \\ \cmidrule{1-4}
+\prog{lw} & Yes & MEM & Loads word from given address \\ \cmidrule{1-4}
+\prog{sw} & Yes & MEM & Stores word at given address \\ \cmidrule{1-4}
+\prog{lb} & Yes & MEM & Loads byte from given address \\ \cmidrule{1-4}
+\prog{sb} & Yes & MEM & Stores byte at given address \\ \cmidrule{1-4}
+\prog{lwr} & Yes & R3 & Like \prog{lw}, using the sum of the operands as address \\ \cmidrule{1-4}
+\prog{swr} & Yes & R3 & Like \prog{sw}, using the sum of the operands as address \\ \cmidrule{1-4}
+\prog{sbr} & Yes & R3 & Like \prog{sb}, using the sum of the operands as address \\ \cmidrule{1-4}
+\prog{lbr} & Yes & R3 & Like \prog{lb}, using the sum of the operands as address \\ \cmidrule{1-4}
+\prog{hlt} & Yes & H & Infinite loop \\ \cmidrule{1-4}
+\prog{li} & No & I & Translates to appropriate \prog{li*} commands \\ \cmidrule{1-4}
+\prog{lilz} & Yes & I & Loads lower byte, zeroes upper byte \\ \cmidrule{1-4}
+\prog{liuz} & Yes & I & Loads upper byte, zeroes lower byte \\ \cmidrule{1-4}
+\prog{lil} & Yes & I & Loads lower byte \\ \cmidrule{1-4}
+\prog{liu} & Yes & I & Loads upper byte \\ \cmidrule{1-4}
+\prog{push} & No & R & Stores contents of register on top of stack  \\ \cmidrule{1-4}
+\prog{pop} & No & R & Loads contents of register from top of stack  \\ \cmidrule{1-4}
+\prog{move} & No & R2 & Copy contents of second register into the first one \\ \cmidrule{1-4}
+\prog{not} & No & R2 & Bitwise negation \\ \cmidrule{1-4}
+\prog{jz} & No & R2 & Conditional jump, based on equality to zero \\ \cmidrule{1-4}
+\prog{jnz} & No & R2 & Negation of \prog{jz} \\ \bottomrule
+\end{longtable}
 
 \end{document}

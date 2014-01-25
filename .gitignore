@@ -11,6 +11,7 @@ cpu/os.rom
 *.ps
 *.log
 *.aux
+*.toc
 */*.net
 */*.snet
 */*.dumb

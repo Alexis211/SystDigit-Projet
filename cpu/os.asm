@@ -37,15 +37,18 @@ _end_process_input:
     jz A _main_loop
 
     jal incr_clock
+    jz A _disp_d7
+    jal disp_clock_ser
+_disp_d7:
     jal disp_clock_d7
     j _main_loop
 
 # PROCEDURE: incr_clock
 # ROLE: take into account seconds increment
 # ARGUMENTS: number of seconds to add, in register A
+# RETURN VALUE: in A, one if we have passed a day, zero otherwise
 incr_clock:
-    push RA
-    jz A _incr_clock_ret
+    jer RA A Z
 
     lb B var_sec
     add B B A
@@ -53,14 +56,14 @@ incr_clock:
     divu A B C
     move B E
     sb B var_sec
-    jz A _incr_clock_ret
+    jer RA A Z
 
     lb B var_min
     add B B A
     divu A B C
     move B E
     sb B var_min
-    jz A _incr_clock_ret
+    jer RA A Z
 
     lb B var_hour
     add B B A
@@ -68,15 +71,17 @@ incr_clock:
     divu A B C
     move B E
     sb B var_hour
-    jz A _incr_clock_ret
+    jer RA A Z
 
     lb B var_day
     add B B A
+    push RA
     jal get_dom
+    pop RA
     divu A B A
     move B E
     sb B var_day
-    jz A _incr_clock_ret
+    jz A _incr_clock_ret2
 
     lb B var_month
     add B B A
@@ -84,15 +89,14 @@ incr_clock:
     divu A B C
     move B E
     sb B var_month
-    jz A _incr_clock_ret
+    jz A _incr_clock_ret2
 
     lw B var_year
     add B B A
     sw B var_year
 
-
-_incr_clock_ret:
-    pop RA
+_incr_clock_ret2:
+    li A 1
     jr RA
 
 # PROCEDURE: get_dom
@@ -101,11 +105,35 @@ _incr_clock_ret:
 # PRESERVES REGISTERS: B
 get_dom:
     lb C var_month
+
+    lilz D 1
+    li A _get_dom_norm
+    jner A D C
+
+    lw D var_year
+
+    lilz A 4
+    divu D D A
+    lilz A 28
+    jner RA Z E
+
+    lilz A 25
+    divu D D A
+    lilz A 29
+    jner RA Z E
+
+    lilz A 4
+    divu D D A
+    lilz A 28
+    jner RA Z E
+
+    lilz A 29
+    jr RA
+_get_dom_norm:
     li D days_in_month
     add D D C
     lb A 0(D)
-
-    jr RA
+    jr RA 
 
 # PROCEDURE: disp_clock_d7
 # ROLE: display current time (H M S) to D7 display
@@ -368,7 +396,7 @@ _ser_out_str_ret:
 check_input:
     li A _input
     lb A 0(A)
-    jz A _check_input_ret
+    jer RA A Z
     move B A
     sei A A '\n'
     jz A _ci_add_b_to_string
@@ -381,7 +409,6 @@ _ci_add_b_to_string:
     incri C 1
     sw C cmdline_used
     jz A check_input
-_check_input_ret:
     jr RA
 
 # PROCEDURE: run_unit_tests
@@ -494,7 +521,38 @@ unit_test_2:        # Unsigned division
     and B B A
 
     jr RA
+    
 unit_test_3:        # Signed multiplication/division
+    li B 0
+    jr RA
+
+unit_test_4:        # Comparison and jumps
+                    # DOES NOT TEST jltr, jler, jltru BECAUSE THEY ARE NOT IMPLEMENTED
+    li B 1
+
+    li A _test_fail
+    li C 12
+    li E 42
+    jer A C E
+
+    li E 12
+    jner A C E
+
+    li A _test4_more
+    li E 12
+    jer A C E
+    j _test_fail
+_test4_more:
+
+    li A _test4_more2
+    jner A C Z
+    j _test_fail
+_test4_more2:
+
+    li E 13
+    jleru RA C E
+
+_test_fail:
     li B 0
     jr RA
 
@@ -508,7 +566,7 @@ msghello:
 msgtick:
     ascii " ..."
 prompt:
-    ascii "\n$ "
+    ascii "$ "
 endl:
     ascii "\n"
 error_too_big:
@@ -519,9 +577,9 @@ error_no_such_var:
 
 # For unit-tests
 testlist:
-    word unit_test_0 unit_test_1 unit_test_2 unit_test_3 0
+    word unit_test_0 unit_test_1 unit_test_2 unit_test_3 unit_test_4 0
 teststr:
-    word test0 test1 test2 test3 0
+    word test0 test1 test2 test3 test4 0
 testbegin:
     ascii "Runing CPU unit tests...\n"
 testok:
@@ -536,10 +594,12 @@ test2:
     ascii "Unsigned division.............. "
 test3:
     ascii "Signed multiplication/division. "
+test4:
+    ascii "Comparisons & jumps............ "
 
 
 days_in_month:
-    byte 31 28 31 30 31 30 31 31 30 31 30 31
+    byte 31 42 31 30 31 30 31 31 30 31 30 31
 
 d7_digits:
     byte 0b1110111 0b0100100 0b1011101 0b1101101 0b0101110

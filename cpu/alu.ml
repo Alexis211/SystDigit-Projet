@@ -284,7 +284,8 @@ let alu_comparer n f0 f a b =
         1   2   lt unsigned
         1   3   le unsigned
     *)
-    let eq_ne = mux (f ** 0) (eq_n n a b) (ne_n n a b) in
+    let eq_a_b = eq_n n a b in
+    let eq_ne = mux (f ** 0) (eq_a_b) (not eq_a_b) in
     let lte_signed = mux (f ** 0) (lt_n n a b) (le_n n a b) in
     let lte_unsigned = mux (f ** 0) (ult_n n a b) (ule_n n a b) in
     let lte = mux (f ** 1) lte_signed lte_unsigned in
